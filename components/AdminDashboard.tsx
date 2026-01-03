@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface Inquiry {
@@ -40,7 +39,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     instagram: '',
     linkedin: '',
     twitter: '',
-    facebook: ''
+    facebook: '',
+    youtube: '', // New
+    fiverr: '',  // New
+    upwork: '',  // New
+    other: ''    // New
   });
   
   // UI States
@@ -82,7 +85,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     if (savedHeroImage) setHeroImage(savedHeroImage);
 
     const savedSocials = localStorage.getItem('portfolio_social_links');
-    if (savedSocials) setSocialLinks(JSON.parse(savedSocials));
+    if (savedSocials) {
+        setSocialLinks(JSON.parse(savedSocials));
+    } else {
+        // Initialize with empty strings if not found
+        setSocialLinks({
+            instagram: '',
+            linkedin: '',
+            twitter: '',
+            facebook: '',
+            youtube: '',
+            fiverr: '',
+            upwork: '',
+            other: ''
+        });
+    }
   }, []);
 
   // Handlers
@@ -178,7 +195,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         <nav className="space-y-2 flex-grow">
           <NavItem id="dashboard" label="Dashboard" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>} />
           <NavItem id="projects" label="Projects" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} />
-          <NavItem id="services" label="Services" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />
+          <NavItem id="services" label="Services" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37-2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />
         </nav>
 
         <button onClick={onLogout} className="flex items-center space-x-3 px-4 py-3 text-red-500 font-bold text-sm hover:bg-red-50 rounded-xl transition-colors">
@@ -198,7 +215,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
            <span className="text-[10px] font-bold mt-1">Work</span>
         </button>
         <button onClick={() => setActiveTab('services')} className={`flex flex-col items-center ${activeTab === 'services' ? 'text-indigo-600' : 'text-slate-400'}`}>
-           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37-2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
            <span className="text-[10px] font-bold mt-1">Services</span>
         </button>
       </div>
@@ -297,7 +314,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
                     {/* Social Media Links */}
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-                        <h3 className="font-bold text-lg mb-6">Social Media Links</h3>
+                        <h3 className="font-bold text-lg mb-6">Social & Freelancer Links</h3>
                         <form onSubmit={saveSocialLinks} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <input 
@@ -319,6 +336,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                     value={socialLinks.facebook} onChange={e => setSocialLinks({...socialLinks, facebook: e.target.value})}
                                     className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     placeholder="Facebook URL"
+                                />
+                                <input 
+                                    value={socialLinks.youtube} onChange={e => setSocialLinks({...socialLinks, youtube: e.target.value})}
+                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="YouTube URL"
+                                />
+                                <input 
+                                    value={socialLinks.fiverr} onChange={e => setSocialLinks({...socialLinks, fiverr: e.target.value})}
+                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Fiverr URL"
+                                />
+                                <input 
+                                    value={socialLinks.upwork} onChange={e => setSocialLinks({...socialLinks, upwork: e.target.value})}
+                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Upwork URL"
+                                />
+                                <input 
+                                    value={socialLinks.other} onChange={e => setSocialLinks({...socialLinks, other: e.target.value})}
+                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Other Link (e.g., Behance)"
                                 />
                             </div>
                             <button className="w-full bg-slate-900 text-white px-6 py-4 rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors shadow-lg hover:shadow-indigo-500/20">Save Social Links</button>
