@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../integrations/supabase/client'; // Import Supabase client
+import { v4 as uuidv4 } from 'uuid'; // For unique filenames
 
 interface Inquiry {
   id: number;
@@ -13,7 +15,7 @@ interface Project {
   id: number;
   title: string;
   category: string;
-  image: string;
+  image: string; // This will now be a Supabase URL
 }
 
 interface Service {
@@ -34,23 +36,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [heroImage, setHeroImage] = useState('photo1.png');
+  const [heroImage, setHeroImage] = useState('photo1.png'); // This will be a Supabase URL
   const [socialLinks, setSocialLinks] = useState({
     instagram: '',
     linkedin: '',
     twitter: '',
     facebook: '',
-    youtube: '', // New
-    fiverr: '',  // New
-    upwork: '',  // New
-    other: ''    // New
+    youtube: '',
+    fiverr: '',
+    upwork: '',
+    other: ''
   });
   
   // UI States
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const [newProject, setNewProject] = useState({ title: '', category: 'Web Design', image: '' });
+  const [newProject, setNewProject] = useState({ title: '', category: 'Web Design', image: '' }); // image will be a Supabase URL
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
+  const [uploadingProject, setUploadingProject] = useState(false);
 
   useEffect(() => {
     // Load Data
@@ -61,7 +65,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     if (savedProjects) setProjects(JSON.parse(savedProjects));
     else {
       const defaults = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1, title: `Project ${i + 1}`, category: i % 2 === 0 ? "Web Design" : "Graphic Design", image: `work${i + 1}.png`
+        id: i + 1, title: `Project ${i + 1}`, category: i % 2 === 0 ? "Web Design" : "Graphic Design", image: `https://picsum.photos/600/800?random=${i + 1}` // Default to placeholder URLs
       }));
       setProjects(defaults);
       localStorage.setItem('portfolio_projects', JSON.stringify(defaults));
@@ -83,24 +87,62 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
     const savedHeroImage = localStorage.getItem('portfolio_hero_image');
     if (savedHeroImage) setHeroImage(savedHeroImage);
+    else setHeroImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'); // Default hero image
 
     const savedSocials = localStorage.getItem('portfolio_social_links');
     if (savedSocials) {
         setSocialLinks(JSON.parse(savedSocials));
     } else {
-        // Initialize with empty strings if not found
         setSocialLinks({
-            instagram: '',
-            linkedin: '',
-            twitter: '',
-            facebook: '',
-            youtube: '',
-            fiverr: '',
-            upwork: '',
-            other: ''
+            instagram: '', linkedin: '', twitter: '', facebook: '',
+            youtube: '', fiverr: '', upwork: '', other: ''
         });
     }
   }, []);
+
+  // Helper to upload image to Supabase Storage
+  const uploadImageToSupabase = async (file: File, folder: string) => {
+    setUploadingHero(true); // Use a generic uploading state for now
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${folder}/${uuidv4()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('portfolio-images')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    setUploadingHero(false);
+    if (error) {
+      console.error('Error uploading image:', error);
+      alert('Error uploading image: ' + error.message);
+      return null;
+    }
+    
+    const { data: publicUrlData } = supabase.storage
+      .from('portfolio-images')
+      .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
+  };
+
+  // Helper to delete image from Supabase Storage
+  const deleteImageFromSupabase = async (imageUrl: string) => {
+    if (!imageUrl || !imageUrl.includes('supabase.co')) return; // Only delete Supabase images
+
+    const pathSegments = imageUrl.split('/');
+    const fileNameWithFolder = pathSegments.slice(pathSegments.indexOf('portfolio-images') + 1).join('/');
+
+    const { error } = await supabase.storage
+      .from('portfolio-images')
+      .remove([fileNameWithFolder]);
+
+    if (error) {
+      console.error('Error deleting image:', error);
+      // alert('Error deleting image: ' + error.message); // Don't alert for every delete, just log
+    }
+  };
 
   // Handlers
   const deleteInquiry = (id: number) => {
@@ -110,8 +152,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     if (selectedInquiry?.id === id) setSelectedInquiry(null);
   };
 
-  const addProject = (e: React.FormEvent) => {
+  const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingProject(true);
+    const imageUrl = await uploadImageToSupabase(file, 'projects');
+    if (imageUrl) {
+      setNewProject(prev => ({ ...prev, image: imageUrl }));
+    }
+    setUploadingProject(false);
+  };
+
+  const addProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newProject.image) {
+      alert("Please upload an image for the project.");
+      return;
+    }
     const project = { ...newProject, id: Date.now() };
     const updated = [project, ...projects];
     setProjects(updated);
@@ -121,8 +179,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const deleteProject = (id: number, e: React.MouseEvent) => {
-    e.stopPropagation(); // Stop event from bubbling
+    e.stopPropagation();
     if(window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
+      const projectToDelete = projects.find(p => p.id === id);
+      if (projectToDelete) {
+        deleteImageFromSupabase(projectToDelete.image); // Delete image from Supabase
+      }
       const updated = projects.filter(p => p.id !== id);
       setProjects(updated);
       localStorage.setItem('portfolio_projects', JSON.stringify(updated));
@@ -138,31 +200,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setEditingService(null);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2500000) { // Limit to ~2.5MB for localStorage safety
-          alert("The image is too large (over 2.5MB). Please compress it or choose a smaller image.");
-          return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setHeroImage(base64String);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const imageUrl = await uploadImageToSupabase(file, 'hero');
+    if (imageUrl) {
+      setHeroImage(imageUrl);
     }
   };
 
-  const saveHeroImage = (e: React.FormEvent) => {
+  const saveHeroImage = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
+        // If heroImage is a local file (base64), it would have been uploaded by handleHeroImageUpload
+        // Now we just save the URL (either new Supabase URL or existing one)
         localStorage.setItem('portfolio_hero_image', heroImage);
         window.dispatchEvent(new Event('storage'));
-        alert("Image Updated Successfully!");
+        alert("Hero Image Updated Successfully!");
       } catch (error) {
-        alert("Storage full! Try a smaller image.");
+        console.error("Error saving hero image:", error);
+        alert("Error saving hero image. Check console for details.");
       }
+  };
+
+  const clearHeroImage = () => {
+    deleteImageFromSupabase(heroImage); // Delete current image from Supabase
+    const defaultImage = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+    setHeroImage(defaultImage);
+    localStorage.setItem('portfolio_hero_image', defaultImage);
+    window.dispatchEvent(new Event('storage'));
   };
 
   const saveSocialLinks = (e: React.FormEvent) => {
@@ -280,9 +347,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                     <input 
                                         type="file" 
                                         accept="image/*"
-                                        onChange={handleImageUpload}
+                                        onChange={handleHeroImageUpload}
                                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                        disabled={uploadingHero}
                                     />
+                                    {uploadingHero && <p className="text-xs text-indigo-600 mt-1">Uploading...</p>}
                                 </div>
                             </div>
                             
@@ -291,24 +360,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                     <div className="w-full border-t border-gray-100" />
                                 </div>
                                 <div className="relative flex justify-center">
-                                    <span className="bg-white px-2 text-[10px] uppercase font-bold text-slate-300">OR enter URL</span>
+                                    <span className="bg-white px-2 text-[10px] uppercase font-bold text-slate-300">OR use URL</span>
                                 </div>
                             </div>
 
                             <div className="flex gap-2">
                                 <input 
-                                    value={heroImage.startsWith('data:image') ? 'Image Uploaded (Base64)' : heroImage} 
+                                    value={heroImage} 
                                     onChange={e => setHeroImage(e.target.value)}
                                     className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    placeholder="Image Filename or URL"
-                                    disabled={heroImage.startsWith('data:image')}
+                                    placeholder="Image URL"
                                 />
-                                {heroImage.startsWith('data:image') && (
-                                    <button type="button" onClick={() => setHeroImage('photo1.png')} className="px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg">Clear</button>
+                                {heroImage && (
+                                    <button type="button" onClick={clearHeroImage} className="px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg">Clear</button>
                                 )}
                             </div>
                             
-                            <button className="w-full bg-slate-900 text-white px-6 py-4 rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors shadow-lg hover:shadow-indigo-500/20">Update Image</button>
+                            <button className="w-full bg-slate-900 text-white px-6 py-4 rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors shadow-lg hover:shadow-indigo-500/20" disabled={uploadingHero}>Update Image</button>
                         </form>
                     </div>
 
@@ -418,8 +486,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                          <select className="p-3 bg-slate-50 rounded-xl border" value={newProject.category} onChange={e => setNewProject({...newProject, category: e.target.value})}>
                             <option>Web Design</option><option>UI/UX</option><option>Graphic Design</option>
                          </select>
-                         <input placeholder="Image Filename" required className="p-3 bg-slate-50 rounded-xl border" value={newProject.image} onChange={e => setNewProject({...newProject, image: e.target.value})} />
-                         <button className="md:col-span-3 bg-slate-900 text-white py-3 rounded-xl font-bold">Save Project</button>
+                         <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={handleProjectImageUpload}
+                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                            disabled={uploadingProject}
+                         />
+                         {uploadingProject && <p className="text-xs text-indigo-600 mt-1">Uploading project image...</p>}
+                         {newProject.image && !uploadingProject && (
+                            <img src={newProject.image} alt="Project Preview" className="w-20 h-20 object-cover rounded-lg" />
+                         )}
+                         <button className="md:col-span-3 bg-slate-900 text-white py-3 rounded-xl font-bold" disabled={uploadingProject}>Save Project</button>
                     </form>
                 )}
 

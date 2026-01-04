@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface Project {
   id: number;
   title: string;
   category: string;
-  image: string;
+  image: string; // This will now be a Supabase URL
 }
 
 const Work: React.FC = () => {
@@ -22,7 +21,7 @@ const Work: React.FC = () => {
           id: i + 1,
           title: `Project Title ${i + 1}`,
           category: i % 2 === 0 ? "Web Design" : "Branding",
-          image: `work${i + 1}.png`
+          image: `https://picsum.photos/600/800?random=${i + 1}` // Default to placeholder URLs
         }));
         setProjects(defaults);
         localStorage.setItem('portfolio_projects', JSON.stringify(defaults));

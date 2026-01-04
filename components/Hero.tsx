@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 
 const Hero: React.FC = () => {
   const [text, setText] = useState('');
   const [wordIndex, setWordIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [heroImage, setHeroImage] = useState('photo1.png');
+  const [heroImage, setHeroImage] = useState('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'); // Default to a placeholder URL
   
   const words = ["Experiences.", "Interfaces.", "Brands.", "Products."];
   const typingSpeed = isDeleting ? 50 : 100;
