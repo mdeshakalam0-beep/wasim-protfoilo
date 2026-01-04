@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../src/integrations/supabase/client'; // Keep supabase import for storage operations
-import { v4 as uuidv4 } from 'uuid'; // For unique filenames
+import { supabase } from '../src/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Inquiry {
   id: number;
@@ -14,8 +14,8 @@ interface Inquiry {
 interface Project {
   id: number;
   title: string;
-  category: string;
-  image: string; // This will now be a Supabase URL
+  category: string; // This will now be a Supabase URL
+  image: string;
 }
 
 interface Service {
@@ -25,18 +25,24 @@ interface Service {
   iconType: string;
 }
 
+interface ProjectCategory {
+  id: string;
+  name: string;
+}
+
 interface AdminDashboardProps {
-  onLogout: () => void; // onLogout prop अब App.tsx से आता है
+  onLogout: () => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'services'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'services' | 'categories'>('dashboard');
   
   // Data States
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [heroImage, setHeroImage] = useState(''); // Default to empty string
+  const [projectCategories, setProjectCategories] = useState<ProjectCategory[]>([]);
+  const [heroImage, setHeroImage] = useState('');
   const [socialLinks, setSocialLinks] = useState({
     instagram: '',
     linkedin: '',
@@ -51,10 +57,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   // UI States
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const [newProject, setNewProject] = useState({ title: '', category: 'Web Design', image: '' }); // image will be a Supabase URL
+  const [newProject, setNewProject] = useState({ title: '', category: '', image: '' });
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [uploadingProject, setUploadingProject] = useState(false);
+
+  // Category Management States
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState<ProjectCategory | null>(null);
 
   useEffect(() => {
     // Load Data
@@ -62,7 +72,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setInquiries(savedInquiries ? JSON.parse(savedInquiries) : []);
 
     const savedProjects = localStorage.getItem('portfolio_projects');
-    // Set projects to empty array if no saved data, instead of defaults
     setProjects(savedProjects ? JSON.parse(savedProjects) : []);
 
     const savedServices = localStorage.getItem('portfolio_services');
@@ -80,7 +89,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     }
 
     const savedHeroImage = localStorage.getItem('portfolio_hero_image');
-    // Set heroImage to empty string if no saved image
     setHeroImage(savedHeroImage || '');
 
     const savedSocials = localStorage.getItem('portfolio_social_links');
@@ -92,17 +100,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             youtube: '', fiverr: '', upwork: '', other: ''
         });
     }
+
+    fetchProjectCategories();
   }, []);
+
+  // Fetch Project Categories from Supabase
+  const fetchProjectCategories = async () => {
+    const { data, error } = await supabase
+      .from('project_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching project categories:', error);
+      alert('Error fetching project categories: ' + error.message);
+    } else {
+      setProjectCategories(data);
+      // Set default category for new project if available
+      if (data.length > 0 && !newProject.category) {
+        setNewProject(prev => ({ ...prev, category: data[0].name }));
+      }
+    }
+  };
 
   // Helper to upload image to Supabase Storage
   const uploadImageToSupabase = async (file: File, folder: string) => {
-    setUploadingHero(true); // Use a generic uploading state for now
+    setUploadingHero(true);
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${uuidv4()}.${fileExt}`;
     
-    // IMPORTANT: With custom admin login, Supabase RLS policies based on auth.uid() will fail.
-    // The RLS policy for 'portfolio-images' bucket needs to allow 'anon' role to insert for this to work.
-    // This is a security risk as anyone can upload.
     const { data, error } = await supabase.storage
       .from('portfolio-images')
       .upload(fileName, file, {
@@ -126,7 +152,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   // Helper to delete image from Supabase Storage
   const deleteImageFromSupabase = async (imageUrl: string) => {
-    if (!imageUrl || !imageUrl.includes('supabase.co')) return; // Only delete Supabase images
+    if (!imageUrl || !imageUrl.includes('supabase.co')) return;
 
     const pathSegments = imageUrl.split('/');
     const fileNameWithFolder = pathSegments.slice(pathSegments.indexOf('portfolio-images') + 1).join('/');
@@ -137,7 +163,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
     if (error) {
       console.error('Error deleting image:', error);
-      // alert('Error deleting image: ' + error.message); // Don't alert for every delete, just log
     }
   };
 
@@ -167,11 +192,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert("Please upload an image for the project.");
       return;
     }
+    if (!newProject.category) {
+      alert("Please select a category for the project.");
+      return;
+    }
     const project = { ...newProject, id: Date.now() };
     const updated = [project, ...projects];
     setProjects(updated);
     localStorage.setItem('portfolio_projects', JSON.stringify(updated));
-    setNewProject({ title: '', category: 'Web Design', image: '' });
+    setNewProject({ title: '', category: projectCategories[0]?.name || '', image: '' }); // Reset with first category
     setShowProjectForm(false);
   };
 
@@ -180,7 +209,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     if(window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
       const projectToDelete = projects.find(p => p.id === id);
       if (projectToDelete) {
-        deleteImageFromSupabase(projectToDelete.image); // Delete image from Supabase
+        deleteImageFromSupabase(projectToDelete.image);
       }
       const updated = projects.filter(p => p.id !== id);
       setProjects(updated);
@@ -220,9 +249,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const clearHeroImage = () => {
-    deleteImageFromSupabase(heroImage); // Delete current image from Supabase
-    setHeroImage(''); // Set to empty string
-    localStorage.setItem('portfolio_hero_image', ''); // Save empty string to localStorage
+    deleteImageFromSupabase(heroImage);
+    setHeroImage('');
+    localStorage.setItem('portfolio_hero_image', '');
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -231,6 +260,63 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     localStorage.setItem('portfolio_social_links', JSON.stringify(socialLinks));
     window.dispatchEvent(new Event('storage'));
     alert("Social Links Updated!");
+  };
+
+  // Category Management Handlers
+  const addCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      alert('Category name cannot be empty.');
+      return;
+    }
+    const { error } = await supabase
+      .from('project_categories')
+      .insert({ name: newCategoryName.trim() });
+
+    if (error) {
+      console.error('Error adding category:', error);
+      alert('Error adding category: ' + error.message);
+    } else {
+      setNewCategoryName('');
+      fetchProjectCategories(); // Re-fetch to update list
+    }
+  };
+
+  const updateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editingCategory.name.trim()) {
+      alert('Category name cannot be empty.');
+      return;
+    }
+    const { error } = await supabase
+      .from('project_categories')
+      .update({ name: editingCategory.name.trim() })
+      .eq('id', editingCategory.id);
+
+    if (error) {
+      console.error('Error updating category:', error);
+      alert('Error updating category: ' + error.message);
+    } else {
+      setEditingCategory(null);
+      fetchProjectCategories(); // Re-fetch to update list
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this category? Projects using this category will still display the name, but it won't be selectable for new projects.")) {
+      return;
+    }
+    const { error } = await supabase
+      .from('project_categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting category:', error);
+      alert('Error deleting category: ' + error.message);
+    } else {
+      fetchProjectCategories(); // Re-fetch to update list
+    }
   };
 
   const NavItem = ({ id, label, icon }: { id: any, label: string, icon: any }) => (
@@ -257,6 +343,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           <NavItem id="dashboard" label="Dashboard" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>} />
           <NavItem id="projects" label="Projects" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} />
           <NavItem id="services" label="Services" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37-2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />
+          <NavItem id="categories" label="Categories" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5.5c.58 0 1.13.2 1.55.55L19 11l-8 8-5.5-5.5c-.35-.42-.55-.97-.55-1.55V7z" /></svg>} />
         </nav>
 
         <button onClick={onLogout} className="flex items-center space-x-3 px-4 py-3 text-red-500 font-bold text-sm hover:bg-red-50 rounded-xl transition-colors">
@@ -278,6 +365,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         <button onClick={() => setActiveTab('services')} className={`flex flex-col items-center ${activeTab === 'services' ? 'text-indigo-600' : 'text-slate-400'}`}>
            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37-2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
            <span className="text-[10px] font-bold mt-1">Services</span>
+        </button>
+        <button onClick={() => setActiveTab('categories')} className={`flex flex-col items-center ${activeTab === 'categories' ? 'text-indigo-600' : 'text-slate-400'}`}>
+           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5.5c.58 0 1.13.2 1.55.55L19 11l-8 8-5.5-5.5c-.35-.42-.55-.97-.55-1.55V7z" /></svg>
+           <span className="text-[10px] font-bold mt-1">Cats</span>
         </button>
       </div>
 
@@ -481,8 +572,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 {showProjectForm && (
                     <form onSubmit={addProject} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 grid md:grid-cols-3 gap-4">
                          <input placeholder="Title" required className="p-3 bg-slate-50 rounded-xl border" value={newProject.title} onChange={e => setNewProject({...newProject, title: e.target.value})} />
-                         <select className="p-3 bg-slate-50 rounded-xl border" value={newProject.category} onChange={e => setNewProject({...newProject, category: e.target.value})}>
-                            <option>Web Design</option><option>UI/UX</option><option>Graphic Design</option>
+                         <select 
+                            className="p-3 bg-slate-50 rounded-xl border" 
+                            value={newProject.category} 
+                            onChange={e => setNewProject({...newProject, category: e.target.value})}
+                            required
+                         >
+                            {projectCategories.length === 0 && <option value="">No categories available</option>}
+                            {projectCategories.map(cat => (
+                                <option key={cat.id} value={cat.name}>{cat.name}</option>
+                            ))}
                          </select>
                          <input 
                             type="file" 
@@ -547,6 +646,67 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                             <div className="flex space-x-3">
                                 <button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Save</button>
                                 <button type="button" onClick={() => setEditingService(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+            </div>
+        )}
+
+        {activeTab === 'categories' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <h3 className="font-bold text-xl">Manage Project Categories</h3>
+                
+                {/* Add New Category Form */}
+                <form onSubmit={addCategory} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex gap-4">
+                    <input 
+                        placeholder="New Category Name" 
+                        required 
+                        className="flex-1 p-3 bg-slate-50 rounded-xl border" 
+                        value={newCategoryName} 
+                        onChange={e => setNewCategoryName(e.target.value)} 
+                    />
+                    <button type="submit" className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700">
+                        Add Category
+                    </button>
+                </form>
+
+                {/* Categories List */}
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-6 border-b border-slate-100">
+                        <h4 className="font-bold text-lg">Existing Categories</h4>
+                    </div>
+                    {projectCategories.length === 0 ? (
+                        <div className="p-10 text-center text-slate-400">No categories added yet.</div>
+                    ) : (
+                        <div className="divide-y divide-slate-50">
+                            {projectCategories.map(cat => (
+                                <div key={cat.id} className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center gap-4">
+                                    <span className="font-bold text-slate-900">{cat.name}</span>
+                                    <div className="flex space-x-2">
+                                        <button onClick={() => setEditingCategory(cat)} className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors">Edit</button>
+                                        <button onClick={() => deleteCategory(cat.id)} className="text-red-500 font-bold text-xs bg-red-50 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors">Delete</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Edit Category Modal */}
+                {editingCategory && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                        <form onSubmit={updateCategory} className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl space-y-4">
+                            <h3 className="text-xl font-bold">Edit Category</h3>
+                            <input 
+                                className="w-full p-3 bg-slate-50 rounded-xl border" 
+                                value={editingCategory.name} 
+                                onChange={e => setEditingCategory({...editingCategory, name: e.target.value})} 
+                                required
+                            />
+                            <div className="flex space-x-3">
+                                <button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Save</button>
+                                <button type="button" onClick={() => setEditingCategory(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold">Cancel</button>
                             </div>
                         </form>
                     </div>
