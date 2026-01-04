@@ -26,7 +26,7 @@ interface Service {
 }
 
 interface AdminDashboardProps {
-  onLogout: () => void;
+  onLogout: () => void; // onLogout prop अब App.tsx से आता है
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {

@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import About from './components/About';
@@ -9,12 +8,11 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
+import { SessionContextProvider, useSession } from './components/SessionContextProvider';
+import { supabase } from './src/integrations/supabase/client';
 
-const App: React.FC = () => {
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('wasim_admin_auth') === 'true';
-  });
+const AppContent: React.FC = () => {
+  const { session } = useSession();
 
   useEffect(() => {
     const observerOptions = { 
@@ -54,20 +52,13 @@ const App: React.FC = () => {
       observer.disconnect();
       mutationObserver.disconnect();
     };
-  }, [isAuthenticated]);
+  }, [session]); // Re-run effect if session changes
 
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-    localStorage.setItem('wasim_admin_auth', 'true');
-    setIsAdminOpen(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('wasim_admin_auth');
-  };
-
-  if (isAuthenticated) {
+  if (session) {
     return <AdminDashboard onLogout={handleLogout} />;
   }
 
@@ -81,15 +72,19 @@ const App: React.FC = () => {
         <Work />
         <Contact />
       </main>
-      <Footer onAdminClick={() => setIsAdminOpen(true)} />
+      <Footer onAdminClick={() => { /* AdminLogin will be shown via routing */ }} />
       
-      {isAdminOpen && (
-        <AdminLogin 
-          onClose={() => setIsAdminOpen(false)} 
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
+      {/* AdminLogin will now be shown if not authenticated */}
+      <AdminLogin />
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <SessionContextProvider>
+      <AppContent />
+    </SessionContextProvider>
   );
 };
 
