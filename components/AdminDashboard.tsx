@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../integrations/supabase/client'; // Import Supabase client
+import { supabase } from '../src/integrations/supabase/client'; // Corrected import path
 import { v4 as uuidv4 } from 'uuid'; // For unique filenames
 
 interface Inquiry {
