@@ -4,7 +4,7 @@ const Hero: React.FC = () => {
   const [text, setText] = useState('');
   const [wordIndex, setWordIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [heroImage, setHeroImage] = useState('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'); // Default to a placeholder URL
+  const [heroImage, setHeroImage] = useState(''); // Default to an empty string
   
   const words = ["Experiences.", "Interfaces.", "Brands.", "Products."];
   const typingSpeed = isDeleting ? 50 : 100;
@@ -12,9 +12,11 @@ const Hero: React.FC = () => {
   useEffect(() => {
     const savedImage = localStorage.getItem('portfolio_hero_image');
     if (savedImage) setHeroImage(savedImage);
+    else setHeroImage(''); // Ensure it's empty if no saved image
+    
     const handleStorageChange = () => {
         const updatedImage = localStorage.getItem('portfolio_hero_image');
-        if (updatedImage) setHeroImage(updatedImage);
+        setHeroImage(updatedImage || ''); // Set to empty string if null
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
@@ -116,18 +118,25 @@ const Hero: React.FC = () => {
              
              {/* Main Image Container */}
              <div className="relative z-10 w-full h-full rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-900/10 border-[6px] border-white/50">
-               <img 
-                 src={heroImage} 
-                 alt="Md. Wasim" 
-                 className="w-full h-full object-cover scale-105 transition-transform duration-1000 hover:scale-100"
-                 onError={(e) => { e.currentTarget.src = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"; }}
-               />
+               {heroImage ? (
+                 <img 
+                   src={heroImage} 
+                   alt="Md. Wasim" 
+                   className="w-full h-full object-cover scale-105 transition-transform duration-1000 hover:scale-100"
+                 />
+               ) : (
+                 <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400 text-sm">
+                   {/* No image uploaded */}
+                 </div>
+               )}
                
-               {/* Overlay Content */}
-               <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent">
-                 <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-1">Creative Developer</p>
-                 <p className="text-white text-2xl font-black">Md. Wasim</p>
-               </div>
+               {/* Overlay Content - only show if image is present */}
+               {heroImage && (
+                 <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent">
+                   <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-1">Creative Developer</p>
+                   <p className="text-white text-2xl font-black">Md. Wasim</p>
+                 </div>
+               )}
              </div>
 
              {/* Floating UI Elements */}

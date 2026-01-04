@@ -36,7 +36,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [heroImage, setHeroImage] = useState('photo1.png'); // This will be a Supabase URL
+  const [heroImage, setHeroImage] = useState(''); // Default to empty string
   const [socialLinks, setSocialLinks] = useState({
     instagram: '',
     linkedin: '',
@@ -62,14 +62,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setInquiries(savedInquiries ? JSON.parse(savedInquiries) : []);
 
     const savedProjects = localStorage.getItem('portfolio_projects');
-    if (savedProjects) setProjects(JSON.parse(savedProjects));
-    else {
-      const defaults = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1, title: `Project ${i + 1}`, category: i % 2 === 0 ? "Web Design" : "Graphic Design", image: `https://picsum.photos/600/800?random=${i + 1}` // Default to placeholder URLs
-      }));
-      setProjects(defaults);
-      localStorage.setItem('portfolio_projects', JSON.stringify(defaults));
-    }
+    // Set projects to empty array if no saved data, instead of defaults
+    setProjects(savedProjects ? JSON.parse(savedProjects) : []);
 
     const savedServices = localStorage.getItem('portfolio_services');
     if (savedServices) setServices(JSON.parse(savedServices));
@@ -86,8 +80,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     }
 
     const savedHeroImage = localStorage.getItem('portfolio_hero_image');
-    if (savedHeroImage) setHeroImage(savedHeroImage);
-    else setHeroImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'); // Default hero image
+    // Set heroImage to empty string if no saved image
+    setHeroImage(savedHeroImage || '');
 
     const savedSocials = localStorage.getItem('portfolio_social_links');
     if (savedSocials) {
@@ -216,8 +210,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const saveHeroImage = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
-        // If heroImage is a local file (base64), it would have been uploaded by handleHeroImageUpload
-        // Now we just save the URL (either new Supabase URL or existing one)
         localStorage.setItem('portfolio_hero_image', heroImage);
         window.dispatchEvent(new Event('storage'));
         alert("Hero Image Updated Successfully!");
@@ -229,9 +221,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const clearHeroImage = () => {
     deleteImageFromSupabase(heroImage); // Delete current image from Supabase
-    const defaultImage = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
-    setHeroImage(defaultImage);
-    localStorage.setItem('portfolio_hero_image', defaultImage);
+    setHeroImage(''); // Set to empty string
+    localStorage.setItem('portfolio_hero_image', ''); // Save empty string to localStorage
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -309,7 +300,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                  <p className="text-xs text-slate-400">Administrator</p>
              </div>
              <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-md">
-                 <img src={heroImage} className="w-full h-full object-cover" onError={(e) => e.currentTarget.src = "https://ui-avatars.com/api/?name=Md+Wasim"} />
+                 <img src={heroImage || "https://ui-avatars.com/api/?name=Md+Wasim"} className="w-full h-full object-cover" />
              </div>
           </div>
         </header>
@@ -343,7 +334,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                              {/* Preview & File Upload */}
                             <div className="flex items-center space-x-4">
                                 <div className="w-16 h-16 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
-                                    <img src={heroImage} alt="Preview" className="w-full h-full object-cover" onError={(e) => e.currentTarget.src='https://ui-avatars.com/api/?name=Md+Wasim'}/>
+                                    {heroImage ? (
+                                        <img src={heroImage} alt="Preview" className="w-full h-full object-cover"/>
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">No Image</div>
+                                    )}
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Upload Photo</label>
@@ -508,7 +503,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     {projects.map(p => (
                         <div key={p.id} className="group relative bg-white rounded-2xl p-3 border border-slate-100 shadow-sm hover:shadow-xl transition-all">
                             <div className="aspect-square rounded-xl overflow-hidden mb-3 bg-slate-100">
-                                <img src={p.image} className="w-full h-full object-cover" onError={e => e.currentTarget.src='https://picsum.photos/400/400?blur=2'} />
+                                {p.image ? (
+                                    <img src={p.image} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">No Image</div>
+                                )}
                             </div>
                             <h4 className="font-bold text-sm truncate">{p.title}</h4>
                             <p className="text-xs text-slate-400">{p.category}</p>

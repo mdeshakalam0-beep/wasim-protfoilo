@@ -14,18 +14,8 @@ const Work: React.FC = () => {
   useEffect(() => {
     const loadProjects = () => {
       const saved = localStorage.getItem('portfolio_projects');
-      if (saved) {
-        setProjects(JSON.parse(saved));
-      } else {
-        const defaults = Array.from({ length: 8 }, (_, i) => ({
-          id: i + 1,
-          title: `Project Title ${i + 1}`,
-          category: i % 2 === 0 ? "Web Design" : "Branding",
-          image: `https://picsum.photos/600/800?random=${i + 1}` // Default to placeholder URLs
-        }));
-        setProjects(defaults);
-        localStorage.setItem('portfolio_projects', JSON.stringify(defaults));
-      }
+      // Set projects to empty array if no saved data, instead of defaults
+      setProjects(saved ? JSON.parse(saved) : []);
     };
     loadProjects();
     window.addEventListener('storage', loadProjects);
@@ -77,12 +67,17 @@ const Work: React.FC = () => {
               style={{ transitionDelay: `${(index % 4) * 50}ms` }}
             >
               <div className="aspect-[4/5] bg-slate-100 overflow-hidden">
-                <img 
-                  src={project.image} 
-                  alt={project.title} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  onError={(e) => { e.currentTarget.src = `https://picsum.photos/600/800?random=${project.id}`; }}
-                />
+                {project.image ? (
+                  <img 
+                    src={project.image} 
+                    alt={project.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400 text-sm">
+                    {/* No project image */}
+                  </div>
+                )}
               </div>
               
               {/* Overlay Gradient */}
