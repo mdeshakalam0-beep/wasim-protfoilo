@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../src/integrations/supabase/client'; // Corrected import path
+import { supabase } from '../src/integrations/supabase/client'; // Keep supabase import for storage operations
 import { v4 as uuidv4 } from 'uuid'; // For unique filenames
 
 interface Inquiry {
@@ -106,6 +106,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${uuidv4()}.${fileExt}`;
     
+    // IMPORTANT: With custom admin login, Supabase RLS policies based on auth.uid() will fail.
+    // The RLS policy for 'portfolio-images' bucket needs to allow 'anon' role to insert for this to work.
+    // This is a security risk as anyone can upload.
     const { data, error } = await supabase.storage
       .from('portfolio-images')
       .upload(fileName, file, {

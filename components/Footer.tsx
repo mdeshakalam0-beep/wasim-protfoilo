@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Instagram, Linkedin, Twitter, Facebook, Youtube, Briefcase, Link } from 'lucide-react'; // Import new icons
 
 interface FooterProps {
-  onAdminClick: () => void;
+  onAdminClick: () => void; // अब यह एक फ़ंक्शन है जो लॉगिन modal को दिखाता है
 }
 
 const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // useState added
 import Header from './components/Header';
 import Hero from './components/Hero';
 import About from './components/About';
@@ -8,11 +8,11 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
-import { SessionContextProvider, useSession } from './src/components/SessionContextProvider'; // Corrected import path
-import { supabase } from './src/integrations/supabase/client';
+// SessionContextProvider और useSession अब आवश्यक नहीं हैं
 
-const AppContent: React.FC = () => {
-  const { session } = useSession();
+const App: React.FC = () => {
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   useEffect(() => {
     const observerOptions = { 
@@ -28,16 +28,13 @@ const AppContent: React.FC = () => {
       });
     }, observerOptions);
 
-    // Function to observe all current reveal elements
     const observeElements = () => {
       const revealElements = document.querySelectorAll('.reveal');
       revealElements.forEach(el => observer.observe(el));
     };
 
-    // Initial observation
     observeElements();
 
-    // Use MutationObserver to watch for dynamically added content (like Work items)
     const mutationObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.addedNodes.length) {
@@ -52,14 +49,19 @@ const AppContent: React.FC = () => {
       observer.disconnect();
       mutationObserver.disconnect();
     };
-  }, [session]); // Re-run effect if session changes
+  }, [isAdminLoggedIn]); // Re-run effect if admin login status changes
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleAdminLoginSuccess = () => {
+    setIsAdminLoggedIn(true);
+    setShowAdminLogin(false);
   };
 
-  if (session) {
-    return <AdminDashboard onLogout={handleLogout} />;
+  const handleAdminLogout = () => {
+    setIsAdminLoggedIn(false);
+  };
+
+  if (isAdminLoggedIn) {
+    return <AdminDashboard onLogout={handleAdminLogout} />;
   }
 
   return (
@@ -72,19 +74,15 @@ const AppContent: React.FC = () => {
         <Work />
         <Contact />
       </main>
-      <Footer onAdminClick={() => { /* AdminLogin will be shown via routing */ }} />
+      <Footer onAdminClick={() => setShowAdminLogin(true)} />
       
-      {/* AdminLogin will now be shown if not authenticated */}
-      <AdminLogin />
+      {showAdminLogin && (
+        <AdminLogin 
+          onLoginSuccess={handleAdminLoginSuccess} 
+          onClose={() => setShowAdminLogin(false)} 
+        />
+      )}
     </div>
-  );
-};
-
-const App: React.FC = () => {
-  return (
-    <SessionContextProvider>
-      <AppContent />
-    </SessionContextProvider>
   );
 };
 
