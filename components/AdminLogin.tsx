@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { supabase } from '../src/integrations/supabase/client';
+import { AuthApiError } from '@supabase/supabase-js';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -6,16 +8,30 @@ interface AdminLoginProps {
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'admin' && password === '@#work786#@') {
-      onLoginSuccess();
+    setLoading(true);
+    setError('');
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      if (authError instanceof AuthApiError) {
+        setError(authError.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
+      setLoading(false);
     } else {
-      setError('Invalid username or password.');
+      onLoginSuccess(); // This will trigger App.tsx to re-evaluate session and show dashboard
     }
   };
 
@@ -42,13 +58,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose }) => {
 
         <form onSubmit={handleLogin} className="relative z-10 space-y-6">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Username</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Email</label>
             <input 
-              type="text" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)}
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-white/10 border border-white/20 rounded-xl px-6 py-4 font-medium text-white focus:ring-2 focus:ring-indigo-500 placeholder-slate-500"
-              placeholder="admin"
+              placeholder="admin@example.com"
               required
             />
           </div>
@@ -66,9 +82,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose }) => {
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
           <button 
             type="submit" 
-            className="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/30 active:scale-95"
+            disabled={loading}
+            className="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
       </div>

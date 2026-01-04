@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // useState added
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import About from './components/About';
@@ -8,10 +8,11 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
-// SessionContextProvider और useSession अब आवश्यक नहीं हैं
+import { SessionContextProvider, useSession } from './components/SessionContextProvider';
+import { supabase } from './integrations/supabase/client';
 
-const App: React.FC = () => {
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+const AppContent: React.FC = () => {
+  const { session, isLoading } = useSession();
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   useEffect(() => {
@@ -49,18 +50,24 @@ const App: React.FC = () => {
       observer.disconnect();
       mutationObserver.disconnect();
     };
-  }, [isAdminLoggedIn]); // Re-run effect if admin login status changes
+  }, [session]); // Re-run effect if session changes
 
-  const handleAdminLoginSuccess = () => {
-    setIsAdminLoggedIn(true);
-    setShowAdminLogin(false);
+  const handleAdminLogout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const handleAdminLogout = () => {
-    setIsAdminLoggedIn(false);
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex items-center space-x-3 text-slate-600">
+          <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
-  if (isAdminLoggedIn) {
+  if (session) {
     return <AdminDashboard onLogout={handleAdminLogout} />;
   }
 
@@ -78,12 +85,18 @@ const App: React.FC = () => {
       
       {showAdminLogin && (
         <AdminLogin 
-          onLoginSuccess={handleAdminLoginSuccess} 
+          onLoginSuccess={() => setShowAdminLogin(false)} // Login success will be handled by SessionContextProvider
           onClose={() => setShowAdminLogin(false)} 
         />
       )}
     </div>
   );
 };
+
+const App: React.FC = () => (
+  <SessionContextProvider>
+    <AppContent />
+  </SessionContextProvider>
+);
 
 export default App;
