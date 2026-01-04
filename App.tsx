@@ -8,7 +8,7 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
-import { SessionContextProvider, useSession } from './components/SessionContextProvider';
+import { SessionContextProvider, useSession } from './src/components/SessionContextProvider'; // Corrected import path
 import { supabase } from './src/integrations/supabase/client';
 
 const AppContent: React.FC = () => {
