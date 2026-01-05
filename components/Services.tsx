@@ -1,42 +1,42 @@
-
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../src/integrations/supabase/client';
+import { Code, Layout, Image, Share2, Brain, CheckCircle } from 'lucide-react'; // Import Lucide icons
 
 interface Service {
-  id: number;
+  id: string; // Changed to string for UUID
   title: string;
-  desc: string;
-  iconType: string;
+  description: string; // Changed from 'desc' to 'description' to match Supabase schema
+  icon_type: string; // Changed from 'iconType' to 'icon_type' to match Supabase schema
 }
 
 const Services: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
 
-  const getDefaults = () => [
-    { id: 1, title: "Web Development", desc: "High-performance websites tailored to your brand's unique needs.", iconType: "code" },
-    { id: 2, title: "UI/UX Design", desc: "Creating intuitive and engaging user experiences that drive conversions.", iconType: "design" },
-    { id: 3, title: "Graphic Design", desc: "Premium visual assets including banners, posters, and thumbnails.", iconType: "graphics" },
-    { id: 4, title: "Social Media", desc: "Growth-focused management and content strategy for modern brands.", iconType: "social" },
-    { id: 5, title: "AI Integration", desc: "Implementing cutting-edge AI tools for automation and content generation.", iconType: "ai" }
-  ];
-
   useEffect(() => {
-    const loadServices = () => {
-      const saved = localStorage.getItem('portfolio_services');
-      setServices(saved ? JSON.parse(saved) : getDefaults());
+    const fetchServices = async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching services:', error);
+      } else {
+        setServices(data);
+      }
     };
-    loadServices();
-    window.addEventListener('storage', loadServices);
-    return () => window.removeEventListener('storage', loadServices);
+
+    fetchServices();
   }, []);
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'code': return <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>;
-      case 'design': return <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>;
-      case 'graphics': return <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-      case 'social': return <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
-      case 'ai': return <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
-      default: return <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>;
+      case 'code': return <Code className="w-6 h-6" />;
+      case 'design': return <Layout className="w-6 h-6" />;
+      case 'graphics': return <Image className="w-6 h-6" />;
+      case 'social': return <Share2 className="w-6 h-6" />;
+      case 'ai': return <Brain className="w-6 h-6" />;
+      default: return <CheckCircle className="w-6 h-6" />;
     }
   };
 
@@ -63,11 +63,11 @@ const Services: React.FC = () => {
               style={{ transitionDelay: `${index * 100}ms` }}
             >
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-8 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
-                {getIcon(service.iconType)}
+                {getIcon(service.icon_type)}
               </div>
               
               <h4 className="text-xl font-bold text-slate-900 mb-3">{service.title}</h4>
-              <p className="text-slate-500 leading-relaxed mb-6">{service.desc}</p>
+              <p className="text-slate-500 leading-relaxed mb-6">{service.description}</p>
               
               <div className="w-full h-1 bg-slate-50 rounded-full overflow-hidden">
                 <div className="h-full bg-indigo-600 w-0 group-hover:w-full transition-all duration-700 ease-in-out"></div>

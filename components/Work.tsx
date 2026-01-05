@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../src/integrations/supabase/client';
 
 interface Project {
-  id: number;
+  id: string; // Changed to string for UUID
   title: string;
   category: string;
-  image: string; // This will now be a Supabase URL
+  image_url: string; // Changed to image_url to match Supabase schema
 }
 
 const Work: React.FC = () => {
@@ -12,14 +13,20 @@ const Work: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState(4); // Initially show 4 projects
 
   useEffect(() => {
-    const loadProjects = () => {
-      const saved = localStorage.getItem('portfolio_projects');
-      // Set projects to empty array if no saved data, instead of defaults
-      setProjects(saved ? JSON.parse(saved) : []);
+    const fetchProjects = async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching projects:', error);
+      } else {
+        setProjects(data);
+      }
     };
-    loadProjects();
-    window.addEventListener('storage', loadProjects);
-    return () => window.removeEventListener('storage', loadProjects);
+
+    fetchProjects();
   }, []);
 
   const toggleViewAll = () => {
@@ -67,9 +74,9 @@ const Work: React.FC = () => {
               style={{ transitionDelay: `${(index % 4) * 50}ms` }}
             >
               <div className="aspect-[4/5] bg-slate-100 overflow-hidden">
-                {project.image ? (
+                {project.image_url ? (
                   <img 
-                    src={project.image} 
+                    src={project.image_url} 
                     alt={project.title} 
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />

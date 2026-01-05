@@ -1,25 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../src/integrations/supabase/client';
 
 const Hero: React.FC = () => {
   const [text, setText] = useState('');
   const [wordIndex, setWordIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [heroImage, setHeroImage] = useState(''); // Default to an empty string
+  const [heroImage, setHeroImage] = useState('');
   
   const words = ["Experiences.", "Interfaces.", "Brands.", "Products."];
   const typingSpeed = isDeleting ? 50 : 100;
 
   useEffect(() => {
-    const savedImage = localStorage.getItem('portfolio_hero_image');
-    if (savedImage) setHeroImage(savedImage);
-    else setHeroImage(''); // Ensure it's empty if no saved image
-    
-    const handleStorageChange = () => {
-        const updatedImage = localStorage.getItem('portfolio_hero_image');
-        setHeroImage(updatedImage || ''); // Set to empty string if null
+    const fetchHeroImage = async () => {
+      const { data, error } = await supabase
+        .from('hero_images')
+        .select('image_url')
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        console.error('Error fetching hero image:', error);
+      } else if (data) {
+        setHeroImage(data.image_url);
+      } else {
+        setHeroImage('');
+      }
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    fetchHeroImage();
   }, []);
 
   useEffect(() => {

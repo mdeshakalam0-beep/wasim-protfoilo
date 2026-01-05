@@ -1,28 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../src/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { Code, Layout, Image, Share2, Brain, CheckCircle, Instagram, Linkedin, Twitter, Facebook, Youtube, Briefcase, Link, Grid, Settings, FolderOpen, Tag } from 'lucide-react';
 
 interface Inquiry {
-  id: number;
+  id: string;
   name: string;
   email: string;
   message: string;
-  date: string;
+  created_at: string; // Changed to match Supabase schema
   status: string;
 }
 
 interface Project {
-  id: number;
+  id: string;
   title: string;
-  category: string; // This will now be a Supabase URL
-  image: string;
+  category: string;
+  image_url: string;
+  created_at: string;
 }
 
 interface Service {
-  id: number;
+  id: string;
   title: string;
-  desc: string;
-  iconType: string;
+  description: string;
+  icon_type: string;
+  created_at: string;
 }
 
 interface ProjectCategory {
@@ -57,7 +60,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   // UI States
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const [newProject, setNewProject] = useState({ title: '', category: '', image: '' });
+  const [newProject, setNewProject] = useState({ title: '', category: '', image_url: '' });
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [uploadingProject, setUploadingProject] = useState(false);
@@ -66,66 +69,98 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<ProjectCategory | null>(null);
 
-  useEffect(() => {
-    // Load Data
-    const savedInquiries = localStorage.getItem('portfolio_inquiries');
-    setInquiries(savedInquiries ? JSON.parse(savedInquiries) : []);
-
-    const savedProjects = localStorage.getItem('portfolio_projects');
-    setProjects(savedProjects ? JSON.parse(savedProjects) : []);
-
-    const savedServices = localStorage.getItem('portfolio_services');
-    if (savedServices) setServices(JSON.parse(savedServices));
-    else {
-      const defaults = [
-        { id: 1, title: "Website Development", desc: "Fast, responsive websites.", iconType: "code" },
-        { id: 2, title: "UI/UX Design", desc: "User-centric designs.", iconType: "design" },
-        { id: 3, title: "Graphic Design", desc: "Eye-catching visuals.", iconType: "graphics" },
-        { id: 4, title: "Social Media", desc: "Engagement growth.", iconType: "social" },
-        { id: 5, title: "AI Prompting", desc: "Hyper-realistic visuals.", iconType: "ai" }
-      ];
-      setServices(defaults);
-      localStorage.setItem('portfolio_services', JSON.stringify(defaults));
-    }
-
-    const savedHeroImage = localStorage.getItem('portfolio_hero_image');
-    setHeroImage(savedHeroImage || '');
-
-    const savedSocials = localStorage.getItem('portfolio_social_links');
-    if (savedSocials) {
-        setSocialLinks(JSON.parse(savedSocials));
-    } else {
-        setSocialLinks({
-            instagram: '', linkedin: '', twitter: '', facebook: '',
-            youtube: '', fiverr: '', upwork: '', other: ''
-        });
-    }
-
-    fetchProjectCategories();
+  // Fetch Functions
+  const fetchInquiries = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('inquiries')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) console.error('Error fetching inquiries:', error);
+    else setInquiries(data);
   }, []);
 
-  // Fetch Project Categories from Supabase
-  const fetchProjectCategories = async () => {
+  const fetchProjects = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) console.error('Error fetching projects:', error);
+    else setProjects(data);
+  }, []);
+
+  const fetchServices = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) console.error('Error fetching services:', error);
+    else setServices(data);
+  }, []);
+
+  const fetchProjectCategories = useCallback(async () => {
     const { data, error } = await supabase
       .from('project_categories')
       .select('*')
       .order('name', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching project categories:', error);
-      alert('Error fetching project categories: ' + error.message);
-    } else {
+    if (error) console.error('Error fetching project categories:', error);
+    else {
       setProjectCategories(data);
-      // Set default category for new project if available
       if (data.length > 0 && !newProject.category) {
         setNewProject(prev => ({ ...prev, category: data[0].name }));
       }
     }
-  };
+  }, [newProject.category]);
+
+  const fetchHeroImage = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('hero_images')
+      .select('image_url')
+      .single();
+    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+      console.error('Error fetching hero image:', error);
+    } else if (data) {
+      setHeroImage(data.image_url);
+    } else {
+      setHeroImage('');
+    }
+  }, []);
+
+  const fetchSocialLinks = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('social_links')
+      .select('platform, url');
+    if (error) {
+      console.error('Error fetching social links:', error);
+    } else {
+      const linksMap: Record<string, string> = {};
+      data.forEach((link) => {
+        linksMap[link.platform] = link.url;
+      });
+      setSocialLinks({
+        instagram: linksMap.instagram || '',
+        linkedin: linksMap.linkedin || '',
+        twitter: linksMap.twitter || '',
+        facebook: linksMap.facebook || '',
+        youtube: linksMap.youtube || '',
+        fiverr: linksMap.fiverr || '',
+        upwork: linksMap.upwork || '',
+        other: linksMap.other || ''
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInquiries();
+    fetchProjects();
+    fetchServices();
+    fetchProjectCategories();
+    fetchHeroImage();
+    fetchSocialLinks();
+  }, [fetchInquiries, fetchProjects, fetchServices, fetchProjectCategories, fetchHeroImage, fetchSocialLinks]);
 
   // Helper to upload image to Supabase Storage
   const uploadImageToSupabase = async (file: File, folder: string) => {
-    setUploadingHero(true);
+    setUploadingHero(true); // Use this for both hero and project for now, can refine later
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${uuidv4()}.${fileExt}`;
     
@@ -167,11 +202,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   // Handlers
-  const deleteInquiry = (id: number) => {
-    const updated = inquiries.filter(item => item.id !== id);
-    setInquiries(updated);
-    localStorage.setItem('portfolio_inquiries', JSON.stringify(updated));
-    if (selectedInquiry?.id === id) setSelectedInquiry(null);
+  const deleteInquiry = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this inquiry?")) return;
+    const { error } = await supabase
+      .from('inquiries')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting inquiry:', error);
+      alert('Error deleting inquiry: ' + error.message);
+    } else {
+      fetchInquiries();
+      if (selectedInquiry?.id === id) setSelectedInquiry(null);
+    }
   };
 
   const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,14 +225,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setUploadingProject(true);
     const imageUrl = await uploadImageToSupabase(file, 'projects');
     if (imageUrl) {
-      setNewProject(prev => ({ ...prev, image: imageUrl }));
+      setNewProject(prev => ({ ...prev, image_url: imageUrl }));
     }
     setUploadingProject(false);
   };
 
   const addProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProject.image) {
+    if (!newProject.image_url) {
       alert("Please upload an image for the project.");
       return;
     }
@@ -196,34 +240,64 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert("Please select a category for the project.");
       return;
     }
-    const project = { ...newProject, id: Date.now() };
-    const updated = [project, ...projects];
-    setProjects(updated);
-    localStorage.setItem('portfolio_projects', JSON.stringify(updated));
-    setNewProject({ title: '', category: projectCategories[0]?.name || '', image: '' }); // Reset with first category
-    setShowProjectForm(false);
+    const { error } = await supabase
+      .from('projects')
+      .insert({
+        title: newProject.title,
+        category: newProject.category,
+        image_url: newProject.image_url
+      });
+
+    if (error) {
+      console.error('Error adding project:', error);
+      alert('Error adding project: ' + error.message);
+    } else {
+      fetchProjects();
+      setNewProject({ title: '', category: projectCategories[0]?.name || '', image_url: '' });
+      setShowProjectForm(false);
+    }
   };
 
-  const deleteProject = (id: number, e: React.MouseEvent) => {
+  const deleteProject = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if(window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
       const projectToDelete = projects.find(p => p.id === id);
       if (projectToDelete) {
-        deleteImageFromSupabase(projectToDelete.image);
+        await deleteImageFromSupabase(projectToDelete.image_url);
       }
-      const updated = projects.filter(p => p.id !== id);
-      setProjects(updated);
-      localStorage.setItem('portfolio_projects', JSON.stringify(updated));
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting project:', error);
+        alert('Error deleting project: ' + error.message);
+      } else {
+        fetchProjects();
+      }
     }
   };
 
-  const saveService = (e: React.FormEvent) => {
+  const saveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingService) return;
-    const updated = services.map(s => s.id === editingService.id ? editingService : s);
-    setServices(updated);
-    localStorage.setItem('portfolio_services', JSON.stringify(updated));
-    setEditingService(null);
+    const { error } = await supabase
+      .from('services')
+      .update({
+        title: editingService.title,
+        description: editingService.description,
+        icon_type: editingService.icon_type
+      })
+      .eq('id', editingService.id);
+
+    if (error) {
+      console.error('Error updating service:', error);
+      alert('Error updating service: ' + error.message);
+    } else {
+      fetchServices();
+      setEditingService(null);
+    }
   };
 
   const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,27 +313,99 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const saveHeroImage = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
-        localStorage.setItem('portfolio_hero_image', heroImage);
-        window.dispatchEvent(new Event('storage'));
+        // Check if an image already exists
+        const { data: existingImage, error: fetchError } = await supabase
+          .from('hero_images')
+          .select('id, image_url')
+          .single();
+
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
+          throw fetchError;
+        }
+
+        if (existingImage) {
+          // Update existing image
+          const { error } = await supabase
+            .from('hero_images')
+            .update({ image_url: heroImage })
+            .eq('id', existingImage.id);
+          if (error) throw error;
+          // Delete old image from storage if it's different
+          if (existingImage.image_url && existingImage.image_url !== heroImage) {
+            await deleteImageFromSupabase(existingImage.image_url);
+          }
+        } else {
+          // Insert new image
+          const { error } = await supabase
+            .from('hero_images')
+            .insert({ image_url: heroImage });
+          if (error) throw error;
+        }
         alert("Hero Image Updated Successfully!");
-      } catch (error) {
+        fetchHeroImage(); // Re-fetch to ensure UI is consistent
+      } catch (error: any) {
         console.error("Error saving hero image:", error);
-        alert("Error saving hero image. Check console for details.");
+        alert("Error saving hero image: " + error.message);
       }
   };
 
-  const clearHeroImage = () => {
-    deleteImageFromSupabase(heroImage);
-    setHeroImage('');
-    localStorage.setItem('portfolio_hero_image', '');
-    window.dispatchEvent(new Event('storage'));
+  const clearHeroImage = async () => {
+    if (!window.confirm("Are you sure you want to remove the hero image?")) return;
+    try {
+      const { data: existingImage, error: fetchError } = await supabase
+        .from('hero_images')
+        .select('id, image_url')
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      if (existingImage) {
+        await deleteImageFromSupabase(existingImage.image_url);
+        const { error } = await supabase
+          .from('hero_images')
+          .delete()
+          .eq('id', existingImage.id);
+        if (error) throw error;
+      }
+      setHeroImage('');
+      alert("Hero Image Removed Successfully!");
+      fetchHeroImage();
+    } catch (error: any) {
+      console.error("Error clearing hero image:", error);
+      alert("Error clearing hero image: " + error.message);
+    }
   };
 
-  const saveSocialLinks = (e: React.FormEvent) => {
+  const saveSocialLinks = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('portfolio_social_links', JSON.stringify(socialLinks));
-    window.dispatchEvent(new Event('storage'));
-    alert("Social Links Updated!");
+    try {
+      // Delete all existing social links
+      const { error: deleteError } = await supabase
+        .from('social_links')
+        .delete()
+        .neq('platform', 'non_existent_platform'); // Delete all rows
+
+      if (deleteError) throw deleteError;
+
+      // Insert new social links
+      const linksToInsert = Object.entries(socialLinks)
+        .filter(([, url]) => url.trim() !== '')
+        .map(([platform, url]) => ({ platform, url }));
+
+      if (linksToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('social_links')
+          .insert(linksToInsert);
+        if (insertError) throw insertError;
+      }
+      alert("Social Links Updated!");
+      fetchSocialLinks(); // Re-fetch to ensure UI is consistent
+    } catch (error: any) {
+      console.error("Error saving social links:", error);
+      alert("Error saving social links: " + error.message);
+    }
   };
 
   // Category Management Handlers
@@ -278,7 +424,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert('Error adding category: ' + error.message);
     } else {
       setNewCategoryName('');
-      fetchProjectCategories(); // Re-fetch to update list
+      fetchProjectCategories();
     }
   };
 
@@ -298,7 +444,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert('Error updating category: ' + error.message);
     } else {
       setEditingCategory(null);
-      fetchProjectCategories(); // Re-fetch to update list
+      fetchProjectCategories();
     }
   };
 
@@ -315,11 +461,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       console.error('Error deleting category:', error);
       alert('Error deleting category: ' + error.message);
     } else {
-      fetchProjectCategories(); // Re-fetch to update list
+      fetchProjectCategories();
     }
   };
 
-  const NavItem = ({ id, label, icon }: { id: any, label: string, icon: any }) => (
+  const NavItem = ({ id, label, icon }: { id: any, label: string, icon: React.ReactNode }) => (
     <button 
       onClick={() => setActiveTab(id)}
       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
@@ -328,6 +474,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       <span>{label}</span>
     </button>
   );
+
+  const getServiceIcon = (type: string) => {
+    switch (type) {
+      case 'code': return <Code className="w-5 h-5" />;
+      case 'design': return <Layout className="w-5 h-5" />;
+      case 'graphics': return <Image className="w-5 h-5" />;
+      case 'social': return <Share2 className="w-5 h-5" />;
+      case 'ai': return <Brain className="w-5 h-5" />;
+      default: return <CheckCircle className="w-5 h-5" />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
@@ -340,10 +497,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </div>
         
         <nav className="space-y-2 flex-grow">
-          <NavItem id="dashboard" label="Dashboard" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>} />
-          <NavItem id="projects" label="Projects" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} />
-          <NavItem id="services" label="Services" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37-2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />
-          <NavItem id="categories" label="Categories" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5.5c.58 0 1.13.2 1.55.55L19 11l-8 8-5.5-5.5c-.35-.42-.55-.97-.55-1.55V7z" /></svg>} />
+          <NavItem id="dashboard" label="Dashboard" icon={<Grid className="w-5 h-5" />} />
+          <NavItem id="projects" label="Projects" icon={<FolderOpen className="w-5 h-5" />} />
+          <NavItem id="services" label="Services" icon={<Settings className="w-5 h-5" />} />
+          <NavItem id="categories" label="Categories" icon={<Tag className="w-5 h-5" />} />
         </nav>
 
         <button onClick={onLogout} className="flex items-center space-x-3 px-4 py-3 text-red-500 font-bold text-sm hover:bg-red-50 rounded-xl transition-colors">
@@ -355,19 +512,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around z-50 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
         <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`}>
-           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+           <Grid className="w-6 h-6" />
            <span className="text-[10px] font-bold mt-1">Dash</span>
         </button>
         <button onClick={() => setActiveTab('projects')} className={`flex flex-col items-center ${activeTab === 'projects' ? 'text-indigo-600' : 'text-slate-400'}`}>
-           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+           <FolderOpen className="w-6 h-6" />
            <span className="text-[10px] font-bold mt-1">Work</span>
         </button>
         <button onClick={() => setActiveTab('services')} className={`flex flex-col items-center ${activeTab === 'services' ? 'text-indigo-600' : 'text-slate-400'}`}>
-           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37-2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+           <Settings className="w-6 h-6" />
            <span className="text-[10px] font-bold mt-1">Services</span>
         </button>
         <button onClick={() => setActiveTab('categories')} className={`flex flex-col items-center ${activeTab === 'categories' ? 'text-indigo-600' : 'text-slate-400'}`}>
-           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5.5c.58 0 1.13.2 1.55.55L19 11l-8 8-5.5-5.5c-.35-.42-.55-.97-.55-1.55V7z" /></svg>
+           <Tag className="w-6 h-6" />
            <span className="text-[10px] font-bold mt-1">Cats</span>
         </button>
       </div>
@@ -533,7 +690,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                                 <div key={msg.id} className="p-6 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row justify-between sm:items-center gap-4 cursor-pointer" onClick={() => setSelectedInquiry(msg)}>
                                     <div>
                                         <h4 className="font-bold text-slate-900">{msg.name}</h4>
-                                        <p className="text-sm text-slate-500">{msg.email} • {msg.date}</p>
+                                        <p className="text-sm text-slate-500">{msg.email} • {new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
                                     <div className="flex items-center space-x-3">
                                         <button onClick={(e) => {e.stopPropagation(); deleteInquiry(msg.id)}} className="text-red-400 hover:text-red-600 text-sm font-bold px-3 py-1 bg-red-50 rounded-lg">Delete</button>
@@ -591,8 +748,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                             disabled={uploadingProject}
                          />
                          {uploadingProject && <p className="text-xs text-indigo-600 mt-1">Uploading project image...</p>}
-                         {newProject.image && !uploadingProject && (
-                            <img src={newProject.image} alt="Project Preview" className="w-20 h-20 object-cover rounded-lg" />
+                         {newProject.image_url && !uploadingProject && (
+                            <img src={newProject.image_url} alt="Project Preview" className="w-20 h-20 object-cover rounded-lg" />
                          )}
                          <button className="md:col-span-3 bg-slate-900 text-white py-3 rounded-xl font-bold" disabled={uploadingProject}>Save Project</button>
                     </form>
@@ -602,8 +759,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     {projects.map(p => (
                         <div key={p.id} className="group relative bg-white rounded-2xl p-3 border border-slate-100 shadow-sm hover:shadow-xl transition-all">
                             <div className="aspect-square rounded-xl overflow-hidden mb-3 bg-slate-100">
-                                {p.image ? (
-                                    <img src={p.image} className="w-full h-full object-cover" />
+                                {p.image_url ? (
+                                    <img src={p.image_url} className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">No Image</div>
                                 )}
@@ -630,7 +787,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                         <div key={s.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-colors flex justify-between group">
                             <div>
                                 <h4 className="font-bold text-slate-900">{s.title}</h4>
-                                <p className="text-sm text-slate-400 mt-1">{s.desc}</p>
+                                <p className="text-sm text-slate-400 mt-1">{s.description}</p>
                             </div>
                             <button onClick={() => setEditingService(s)} className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity h-fit">Edit</button>
                         </div>
@@ -642,7 +799,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                         <form onSubmit={saveService} className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl space-y-4">
                             <h3 className="text-xl font-bold">Edit Service</h3>
                             <input className="w-full p-3 bg-slate-50 rounded-xl border" value={editingService.title} onChange={e => setEditingService({...editingService, title: e.target.value})} />
-                            <textarea className="w-full p-3 bg-slate-50 rounded-xl border" rows={3} value={editingService.desc} onChange={e => setEditingService({...editingService, desc: e.target.value})} />
+                            <textarea className="w-full p-3 bg-slate-50 rounded-xl border" rows={3} value={editingService.description} onChange={e => setEditingService({...editingService, description: e.target.value})} />
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Icon Type</label>
+                            <select 
+                                className="w-full p-3 bg-slate-50 rounded-xl border" 
+                                value={editingService.icon_type} 
+                                onChange={e => setEditingService({...editingService, icon_type: e.target.value})}
+                            >
+                                <option value="code">Code</option>
+                                <option value="design">Design</option>
+                                <option value="graphics">Graphics</option>
+                                <option value="social">Social Media</option>
+                                <option value="ai">AI Integration</option>
+                                <option value="other">Other</option>
+                            </select>
                             <div className="flex space-x-3">
                                 <button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Save</button>
                                 <button type="button" onClick={() => setEditingService(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold">Cancel</button>

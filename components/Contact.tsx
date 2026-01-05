@@ -1,70 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { Instagram, Linkedin, Twitter, Facebook, Youtube, Briefcase, Link } from 'lucide-react'; // Import new icons
+import { Instagram, Linkedin, Twitter, Facebook, Youtube, Briefcase, Link } from 'lucide-react';
+import { supabase } from '../src/integrations/supabase/client';
+
+interface SocialLink {
+  platform: string;
+  url: string;
+}
 
 const Contact: React.FC = () => {
   const [status, setStatus] = useState<'IDLE' | 'SUBMITTING' | 'SUCCESS' | 'ERROR'>('IDLE');
-  const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
-  const [socialLinks, setSocialLinks] = useState({
-    instagram: '',
-    linkedin: '',
-    twitter: '',
-    facebook: '',
-    youtube: '', // New
-    fiverr: '',  // New
-    upwork: '',  // New
-    other: ''    // New
-  });
-
-  const FORMSPREE_ENDPOINT = "https://formspree.io/f/mvzgzkda"; 
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const loadSocials = () => {
-      const saved = localStorage.getItem('portfolio_social_links');
-      if (saved) setSocialLinks(JSON.parse(saved));
-    };
-    loadSocials();
-    window.addEventListener('storage', loadSocials);
-    return () => window.removeEventListener('storage', loadSocials);
-  }, []);
+    const fetchSocialLinks = async () => {
+      const { data, error } = await supabase
+        .from('social_links')
+        .select('platform, url');
 
-  const saveMessageLocally = (data: any) => {
-    try {
-      const existing = JSON.parse(localStorage.getItem('portfolio_inquiries') || '[]');
-      const newMsg = {
-        id: Date.now(),
-        ...data,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        status: 'new'
-      };
-      localStorage.setItem('portfolio_inquiries', JSON.stringify([newMsg, ...existing]));
-    } catch (e) { console.error(e); }
-  };
+      if (error) {
+        console.error('Error fetching social links:', error);
+      } else {
+        const linksMap: Record<string, string> = {};
+        data.forEach((link: SocialLink) => {
+          linksMap[link.platform] = link.url;
+        });
+        setSocialLinks(linksMap);
+      }
+    };
+
+    fetchSocialLinks();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('SUBMITTING');
-    saveMessageLocally(formData);
 
-    try {
-      const res = await fetch(FORMSPREE_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, _subject: `New Portfolio Inquiry from ${formData.name}` }),
+    const { error } = await supabase
+      .from('inquiries')
+      .insert({
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+        status: 'new'
       });
-      if (res.ok) {
-        setStatus('SUCCESS');
-        setFormData({ name: '', email: '', message: '' });
-      } else {
-        // Fallback for demo purposes/formspree config issues
-        setStatus('SUCCESS');
-        setFormData({ name: '', email: '', message: '' });
-        alert("Message saved to Dashboard!");
-      }
-    } catch (error) {
+
+    if (error) {
+      console.error('Error submitting inquiry:', error);
+      setStatus('ERROR');
+      alert('Error submitting inquiry: ' + error.message);
+    } else {
       setStatus('SUCCESS');
       setFormData({ name: '', email: '', message: '' });
-      alert("Message saved to Dashboard (Network Issue)");
     }
   };
 
@@ -78,10 +65,10 @@ const Contact: React.FC = () => {
         case 'linkedin': return <Linkedin className="w-5 h-5" />;
         case 'twitter': return <Twitter className="w-5 h-5" />;
         case 'facebook': return <Facebook className="w-5 h-5" />;
-        case 'youtube': return <Youtube className="w-5 h-5" />; // New icon
-        case 'fiverr': return <Briefcase className="w-5 h-5" />; // Using Briefcase for freelancer platforms
-        case 'upwork': return <Briefcase className="w-5 h-5" />; // Using Briefcase for freelancer platforms
-        case 'other': return <Link className="w-5 h-5" />; // Generic link icon
+        case 'youtube': return <Youtube className="w-5 h-5" />;
+        case 'fiverr': return <Briefcase className="w-5 h-5" />;
+        case 'upwork': return <Briefcase className="w-5 h-5" />;
+        case 'other': return <Link className="w-5 h-5" />;
         default: return null;
     }
   };

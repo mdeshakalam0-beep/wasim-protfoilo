@@ -1,30 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { Instagram, Linkedin, Twitter, Facebook, Youtube, Briefcase, Link } from 'lucide-react'; // Import new icons
+import { Instagram, Linkedin, Twitter, Facebook, Youtube, Briefcase, Link } from 'lucide-react';
+import { supabase } from '../src/integrations/supabase/client';
 
 interface FooterProps {
-  onAdminClick: () => void; // अब यह एक फ़ंक्शन है जो लॉगिन modal को दिखाता है
+  onAdminClick: () => void;
+}
+
+interface SocialLink {
+  platform: string;
+  url: string;
 }
 
 const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
-  const [socialLinks, setSocialLinks] = useState({
-    instagram: '',
-    linkedin: '',
-    twitter: '',
-    facebook: '',
-    youtube: '', // New
-    fiverr: '',  // New
-    upwork: '',  // New
-    other: ''    // New
-  });
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const loadSocials = () => {
-      const saved = localStorage.getItem('portfolio_social_links');
-      if (saved) setSocialLinks(JSON.parse(saved));
+    const fetchSocialLinks = async () => {
+      const { data, error } = await supabase
+        .from('social_links')
+        .select('platform, url');
+
+      if (error) {
+        console.error('Error fetching social links:', error);
+      } else {
+        const linksMap: Record<string, string> = {};
+        data.forEach((link: SocialLink) => {
+          linksMap[link.platform] = link.url;
+        });
+        setSocialLinks(linksMap);
+      }
     };
-    loadSocials();
-    window.addEventListener('storage', loadSocials);
-    return () => window.removeEventListener('storage', loadSocials);
+
+    fetchSocialLinks();
   }, []);
   
   const scrollToSection = (id: string) => {
@@ -43,10 +50,10 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
           case 'linkedin': return <Linkedin className="w-4 h-4" />;
           case 'twitter': return <Twitter className="w-4 h-4" />;
           case 'facebook': return <Facebook className="w-4 h-4" />;
-          case 'youtube': return <Youtube className="w-4 h-4" />; // New icon
-          case 'fiverr': return <Briefcase className="w-4 h-4" />; // Using Briefcase for freelancer platforms
-          case 'upwork': return <Briefcase className="w-4 h-4" />; // Using Briefcase for freelancer platforms
-          case 'other': return <Link className="w-4 h-4" />; // Generic link icon
+          case 'youtube': return <Youtube className="w-4 h-4" />;
+          case 'fiverr': return <Briefcase className="w-4 h-4" />;
+          case 'upwork': return <Briefcase className="w-4 h-4" />;
+          case 'other': return <Link className="w-4 h-4" />;
           default: return null;
       }
   };
